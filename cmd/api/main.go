@@ -9,8 +9,11 @@ import (
 
 	"github.com/alvimrafael/exchange-api/internal/cache"
 	"github.com/alvimrafael/exchange-api/internal/handler"
+	"github.com/alvimrafael/exchange-api/internal/middleware"
 	"github.com/alvimrafael/exchange-api/internal/provider"
+	"github.com/alvimrafael/exchange-api/internal/repository"
 	"github.com/alvimrafael/exchange-api/internal/service"
+	"github.com/alvimrafael/exchange-api/internal/webhook"
 	"github.com/alvimrafael/exchange-api/pkg/config"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -40,6 +43,9 @@ func main() {
 	}
 	log.Println("✓ postgres conectado")
 
+	rateRepo := repository.NewRateRepository(db)
+	webhookRepo := repository.NewWebhookRepository(db)
+
 	opts, err := redis.ParseURL(cfg.RedisURL)
 	if err != nil {
 		log.Fatal("redis: URL inválida: ", err)
@@ -56,10 +62,18 @@ func main() {
 	ttl := time.Duration(cfg.CacheTTL) * time.Second
 
 	exchangeProvider := provider.NewExchangeRateAPI(cfg.ExchangeAPIKey)
-	rateSvc := service.NewRateService(exchangeProvider, rateCache, ttl)
+	rateSvc := service.NewRateService(exchangeProvider, rateCache, rateRepo, ttl)
 	rateHandler := handler.NewRateHandler(rateSvc)
 
+	webhookInterval := time.Duration(cfg.WebhookIntervalSecs) * time.Second
+	webhookWorker := webhook.NewWorker(webhookRepo, rateRepo, webhookInterval)
+	go webhookWorker.Start(context.Background())
+
+	webhookHandler := handler.NewWebhookHandler(webhookRepo)
+	rateLimiter := middleware.NewIPRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
+
 	r := gin.Default()
+	r.Use(middleware.RateLimit(rateLimiter))
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -70,6 +84,11 @@ func main() {
 	})
 
 	r.GET("/rates", rateHandler.GetRate)
+	r.GET("/rates/history", rateHandler.GetHistory)
+
+	r.POST("/webhooks", webhookHandler.Create)
+	r.GET("/webhooks", webhookHandler.List)
+	r.DELETE("/webhooks/:id", webhookHandler.Delete)
 
 	log.Println("servidor na porta", cfg.Port)
 	r.Run(":" + cfg.Port)
