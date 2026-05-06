@@ -178,9 +178,3 @@ make swagger  # regenerate docs only
 make test     # run tests
 make tidy     # go mod tidy
 ```
-
----
-
-## License
-
-MIT
