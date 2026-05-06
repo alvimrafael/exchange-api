@@ -5,7 +5,10 @@ env-check:
 run: env-check
 	go run cmd/api/main.go
 
-build:
+swagger:
+	~/go/bin/swag init -g cmd/api/main.go -o docs
+
+build: swagger
 	go build -o bin/api cmd/api/main.go
 
 test:

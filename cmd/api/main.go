@@ -1,12 +1,18 @@
+// @title           Exchange Rate API
+// @version         1.0
+// @description     Currency exchange rate API with Redis caching, PostgreSQL history, rate limiting, and webhooks.
+// @host            localhost:8080
+// @BasePath        /
+
 package main
 
 import (
 	"context"
 	"database/sql"
 	"log"
-	"net/http"
 	"time"
 
+	_ "github.com/alvimrafael/exchange-api/docs"
 	"github.com/alvimrafael/exchange-api/internal/cache"
 	"github.com/alvimrafael/exchange-api/internal/handler"
 	"github.com/alvimrafael/exchange-api/internal/middleware"
@@ -19,6 +25,8 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
+	"github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func main() {
@@ -75,20 +83,14 @@ func main() {
 	r := gin.Default()
 	r.Use(middleware.RateLimit(rateLimiter))
 
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status":   "ok",
-			"postgres": "up",
-			"redis":    "up",
-		})
-	})
-
+	r.GET("/health", handler.HealthCheck)
 	r.GET("/rates", rateHandler.GetRate)
 	r.GET("/rates/history", rateHandler.GetHistory)
-
 	r.POST("/webhooks", webhookHandler.Create)
 	r.GET("/webhooks", webhookHandler.List)
 	r.DELETE("/webhooks/:id", webhookHandler.Delete)
+
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	log.Println("servidor na porta", cfg.Port)
 	r.Run(":" + cfg.Port)
