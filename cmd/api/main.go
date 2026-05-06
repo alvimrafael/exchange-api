@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"time"
 
+	"github.com/alvimrafael/exchange-api/internal/cache"
 	"github.com/alvimrafael/exchange-api/internal/handler"
 	"github.com/alvimrafael/exchange-api/internal/provider"
 	"github.com/alvimrafael/exchange-api/internal/service"
@@ -50,8 +52,11 @@ func main() {
 	}
 	log.Println("✓ redis conectado")
 
+	rateCache := cache.NewRedisCache(rdb)
+	ttl := time.Duration(cfg.CacheTTL) * time.Second
+
 	exchangeProvider := provider.NewExchangeRateAPI(cfg.ExchangeAPIKey)
-	rateSvc := service.NewRateService(exchangeProvider)
+	rateSvc := service.NewRateService(exchangeProvider, rateCache, ttl)
 	rateHandler := handler.NewRateHandler(rateSvc)
 
 	r := gin.Default()
