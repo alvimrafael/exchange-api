@@ -3,22 +3,25 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/alvimrafael/exchange-api/internal/cache"
 	"github.com/alvimrafael/exchange-api/internal/provider"
+	"github.com/alvimrafael/exchange-api/internal/repository"
 )
 
 type RateService struct {
 	provider provider.ExchangeProvider
 	cache    cache.CacheProvider
+	repo     *repository.RateRepository
 	ttl      time.Duration
 }
 
-func NewRateService(p provider.ExchangeProvider, c cache.CacheProvider, ttl time.Duration) *RateService {
-	return &RateService{provider: p, cache: c, ttl: ttl}
+func NewRateService(p provider.ExchangeProvider, c cache.CacheProvider, repo *repository.RateRepository, ttl time.Duration) *RateService {
+	return &RateService{provider: p, cache: c, repo: repo, ttl: ttl}
 }
 
 type RateResult struct {
@@ -54,5 +57,15 @@ func (s *RateService) GetRate(ctx context.Context, from, to string) (*RateResult
 		_ = err
 	}
 
-	return &RateResult{From: from, To: to, Rate: rate}, nil
+	result := &RateResult{From: from, To: to, Rate: rate, Cached: false}
+	go func() {
+		if err := s.repo.Save(context.Background(), result.From, result.To, result.Rate, result.Cached); err != nil {
+			log.Printf("repository: erro ao salvar cotação: %v", err)
+		}
+	}()
+	return result, nil
+}
+
+func (s *RateService) GetHistory(ctx context.Context, from, to string, days int) ([]repository.RateRecord, error) {
+	return s.repo.History(ctx, from, to, days)
 }
