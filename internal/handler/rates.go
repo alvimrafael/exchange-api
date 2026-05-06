@@ -3,6 +3,8 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/alvimrafael/exchange-api/internal/provider"
 	"github.com/alvimrafael/exchange-api/internal/service"
@@ -37,4 +39,24 @@ func (h *RateHandler) GetRate(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *RateHandler) GetHistory(c *gin.Context) {
+	from := strings.ToUpper(c.Query("from"))
+	to := strings.ToUpper(c.Query("to"))
+	days := 7 // default
+
+	if d := c.Query("days"); d != "" {
+		if parsed, err := strconv.Atoi(d); err == nil && parsed > 0 {
+			days = parsed
+		}
+	}
+
+	records, err := h.svc.GetHistory(c.Request.Context(), from, to, days)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "erro ao buscar histórico"})
+		return
+	}
+
+	c.JSON(http.StatusOK, records)
 }
