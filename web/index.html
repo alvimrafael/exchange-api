@@ -1,10 +1,347 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Title</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exchange Rate Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    header p {
+      color: #64748b;
+      margin-top: .4rem;
+      font-size: .9rem;
+    }
+
+    .container { max-width: 860px; margin: 0 auto; }
+
+    /* ── controls ── */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem;
+      align-items: flex-end;
+      margin-bottom: 1.5rem;
+    }
+    .field { display: flex; flex-direction: column; gap: .35rem; }
+    label { font-size: .75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; }
+    select, input[type=number] {
+      background: #1e2130;
+      border: 1px solid #2d3348;
+      color: #e2e8f0;
+      padding: .5rem .75rem;
+      border-radius: .5rem;
+      font-size: .95rem;
+      cursor: pointer;
+      outline: none;
+      transition: border-color .2s;
+    }
+    select:focus, input[type=number]:focus { border-color: #6366f1; }
+    input[type=number] { width: 90px; }
+
+    button {
+      padding: .55rem 1.25rem;
+      border: none;
+      border-radius: .5rem;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+    }
+    button:active { transform: scale(.97); }
+    .btn-primary { background: #6366f1; color: #fff; }
+    .btn-primary:hover { opacity: .88; }
+    .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* ── rate card ── */
+    .rate-card {
+      background: #1e2130;
+      border: 1px solid #2d3348;
+      border-radius: .75rem;
+      padding: 1.5rem 2rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      min-height: 90px;
+    }
+    .rate-main { display: flex; align-items: baseline; gap: .75rem; }
+    .rate-pair { font-size: 1rem; color: #94a3b8; font-weight: 500; }
+    .rate-value {
+      font-size: 2.25rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -1px;
+    }
+    .rate-meta { display: flex; flex-direction: column; align-items: flex-end; gap: .4rem; }
+    .badge {
+      font-size: .72rem;
+      font-weight: 600;
+      padding: .2rem .6rem;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .badge-cached  { background: #1e3a5f; color: #60a5fa; }
+    .badge-live    { background: #14532d; color: #4ade80; }
+    .rate-time { font-size: .78rem; color: #64748b; }
+    .rate-placeholder { color: #475569; font-size: .95rem; }
+    .rate-error { color: #f87171; font-size: .95rem; }
+
+    /* ── chart card ── */
+    .chart-card {
+      background: #1e2130;
+      border: 1px solid #2d3348;
+      border-radius: .75rem;
+      padding: 1.5rem;
+    }
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .chart-title { font-size: 1rem; font-weight: 600; color: #cbd5e1; }
+    .chart-subtitle { font-size: .8rem; color: #64748b; margin-top: .15rem; }
+    .chart-wrap { position: relative; height: 280px; }
+    .chart-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 280px;
+      color: #475569;
+      font-size: .9rem;
+    }
+  </style>
 </head>
 <body>
+<div class="container">
+  <header>
+    <h1>Exchange Rate Dashboard</h1>
+    <p>Live rates &amp; history powered by the Exchange Rate API</p>
+  </header>
 
+  <div class="controls">
+    <div class="field">
+      <label>From</label>
+      <select id="from">
+        <option value="USD" selected>USD — US Dollar</option>
+        <option value="EUR">EUR — Euro</option>
+        <option value="GBP">GBP — British Pound</option>
+        <option value="BRL">BRL — Brazilian Real</option>
+        <option value="JPY">JPY — Japanese Yen</option>
+        <option value="CAD">CAD — Canadian Dollar</option>
+        <option value="AUD">AUD — Australian Dollar</option>
+        <option value="CHF">CHF — Swiss Franc</option>
+        <option value="CNY">CNY — Chinese Yuan</option>
+        <option value="ARS">ARS — Argentine Peso</option>
+        <option value="MXN">MXN — Mexican Peso</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>To</label>
+      <select id="to">
+        <option value="USD">USD — US Dollar</option>
+        <option value="EUR">EUR — Euro</option>
+        <option value="GBP">GBP — British Pound</option>
+        <option value="BRL" selected>BRL — Brazilian Real</option>
+        <option value="JPY">JPY — Japanese Yen</option>
+        <option value="CAD">CAD — Canadian Dollar</option>
+        <option value="AUD">AUD — Australian Dollar</option>
+        <option value="CHF">CHF — Swiss Franc</option>
+        <option value="CNY">CNY — Chinese Yuan</option>
+        <option value="ARS">ARS — Argentine Peso</option>
+        <option value="MXN">MXN — Mexican Peso</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>History (days)</label>
+      <input type="number" id="days" value="7" min="1" max="90" />
+    </div>
+    <div class="field" style="justify-content: flex-end;">
+      <button class="btn-primary" id="fetchBtn" onclick="fetchAll()">Get Rate</button>
+    </div>
+  </div>
+
+  <!-- current rate -->
+  <div class="rate-card" id="rateCard">
+    <span class="rate-placeholder">Select currencies and click Get Rate</span>
+  </div>
+
+  <!-- history chart -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title" id="chartTitle">Rate History</div>
+        <div class="chart-subtitle" id="chartSubtitle">Fetch a rate to see history</div>
+      </div>
+    </div>
+    <div id="chartWrap" class="chart-empty">No data yet</div>
+  </div>
+</div>
+
+<script>
+  let chart = null;
+
+  async function fetchAll() {
+    const from  = document.getElementById('from').value;
+    const to    = document.getElementById('to').value;
+    const days  = parseInt(document.getElementById('days').value) || 7;
+    const btn   = document.getElementById('fetchBtn');
+
+    btn.disabled = true;
+    btn.textContent = 'Loading…';
+
+    await Promise.all([
+      fetchRate(from, to),
+      fetchHistory(from, to, days),
+    ]);
+
+    btn.disabled = false;
+    btn.textContent = 'Get Rate';
+  }
+
+  async function fetchRate(from, to) {
+    const card = document.getElementById('rateCard');
+    try {
+      const res  = await fetch(`/rates?from=${from}&to=${to}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        card.innerHTML = `<span class="rate-error">${data.error || 'Error fetching rate'}</span>`;
+        return;
+      }
+
+      const badgeClass = data.cached ? 'badge-cached' : 'badge-live';
+      const badgeText  = data.cached ? 'Cached' : 'Live';
+      const now        = new Date().toLocaleTimeString();
+
+      card.innerHTML = `
+        <div class="rate-main">
+          <span class="rate-pair">${data.from} / ${data.to}</span>
+          <span class="rate-value">${Number(data.rate).toFixed(4)}</span>
+        </div>
+        <div class="rate-meta">
+          <span class="badge ${badgeClass}">${badgeText}</span>
+          <span class="rate-time">Updated at ${now}</span>
+        </div>`;
+    } catch {
+      card.innerHTML = `<span class="rate-error">Could not reach the API</span>`;
+    }
+  }
+
+  async function fetchHistory(from, to, days) {
+    const wrap    = document.getElementById('chartWrap');
+    const title   = document.getElementById('chartTitle');
+    const subtitle = document.getElementById('chartSubtitle');
+
+    title.textContent    = `${from} → ${to} — Rate History`;
+    subtitle.textContent = `Last ${days} day${days !== 1 ? 's' : ''}`;
+
+    try {
+      const res     = await fetch(`/rates/history?from=${from}&to=${to}&days=${days}`);
+      const records = await res.json();
+
+      if (!res.ok || !Array.isArray(records) || records.length === 0) {
+        destroyChart();
+        wrap.className  = 'chart-empty';
+        wrap.innerHTML  = 'No history yet for this pair';
+        return;
+      }
+
+      const sorted = [...records].sort((a, b) => new Date(a.queried_at) - new Date(b.queried_at));
+      const labels = sorted.map(r => {
+        const d = new Date(r.queried_at);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+               ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      });
+      const values = sorted.map(r => r.rate);
+
+      renderChart(wrap, labels, values, `${from}/${to}`);
+    } catch {
+      destroyChart();
+      wrap.className = 'chart-empty';
+      wrap.innerHTML = 'Failed to load history';
+    }
+  }
+
+  function renderChart(wrap, labels, values, label) {
+    destroyChart();
+    wrap.className = 'chart-wrap';
+    wrap.innerHTML = '<canvas id="rateChart"></canvas>';
+
+    const ctx = document.getElementById('rateChart').getContext('2d');
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label,
+          data: values,
+          borderColor: '#6366f1',
+          backgroundColor: 'rgba(99,102,241,.12)',
+          borderWidth: 2,
+          pointRadius: values.length > 50 ? 0 : 3,
+          pointHoverRadius: 5,
+          pointBackgroundColor: '#6366f1',
+          tension: 0.3,
+          fill: true,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1e2130',
+            borderColor: '#2d3348',
+            borderWidth: 1,
+            titleColor: '#94a3b8',
+            bodyColor: '#e2e8f0',
+            callbacks: {
+              label: ctx => ` ${ctx.parsed.y.toFixed(6)}`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: '#64748b', maxRotation: 0, maxTicksLimit: 8, font: { size: 11 } },
+            grid:  { color: '#1a1f2e' },
+          },
+          y: {
+            ticks: { color: '#64748b', font: { size: 11 } },
+            grid:  { color: '#1a1f2e' },
+          },
+        },
+      },
+    });
+  }
+
+  function destroyChart() {
+    if (chart) { chart.destroy(); chart = null; }
+  }
+</script>
 </body>
 </html>

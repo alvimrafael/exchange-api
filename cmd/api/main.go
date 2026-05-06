@@ -91,6 +91,7 @@ func main() {
 	r.DELETE("/webhooks/:id", webhookHandler.Delete)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.StaticFile("/", "./web/index.html")
 
 	log.Println("servidor na porta", cfg.Port)
 	r.Run(":" + cfg.Port)
