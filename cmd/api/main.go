@@ -6,6 +6,9 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/alvimrafael/exchange-api/internal/handler"
+	"github.com/alvimrafael/exchange-api/internal/provider"
+	"github.com/alvimrafael/exchange-api/internal/service"
 	"github.com/alvimrafael/exchange-api/pkg/config"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -14,16 +17,16 @@ import (
 )
 
 func main() {
-	// 1. Carrega .env PRIMEIRO, antes de qualquer config.Load()
 	if err := godotenv.Load(); err != nil {
 		log.Println("aviso: .env não encontrado, usando variáveis do sistema")
-		// não é fatal — em produção as envs vêm do sistema, não do arquivo
 	}
 
-	// 2. Lê configuração (agora as envs já estão carregadas)
 	cfg := config.Load()
 
-	// 3. Conecta no PostgreSQL
+	if cfg.ExchangeAPIKey == "" {
+		log.Fatal("EXCHANGE_API_KEY não configurada")
+	}
+
 	db, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
 		log.Fatal("postgres: erro ao inicializar cliente: ", err)
@@ -35,7 +38,6 @@ func main() {
 	}
 	log.Println("✓ postgres conectado")
 
-	// 4. Conecta no Redis
 	opts, err := redis.ParseURL(cfg.RedisURL)
 	if err != nil {
 		log.Fatal("redis: URL inválida: ", err)
@@ -48,7 +50,10 @@ func main() {
 	}
 	log.Println("✓ redis conectado")
 
-	// 5. Monta o servidor — SEMPRE por último
+	exchangeProvider := provider.NewExchangeRateAPI(cfg.ExchangeAPIKey)
+	rateSvc := service.NewRateService(exchangeProvider)
+	rateHandler := handler.NewRateHandler(rateSvc)
+
 	r := gin.Default()
 
 	r.GET("/health", func(c *gin.Context) {
@@ -58,6 +63,8 @@ func main() {
 			"redis":    "up",
 		})
 	})
+
+	r.GET("/rates", rateHandler.GetRate)
 
 	log.Println("servidor na porta", cfg.Port)
 	r.Run(":" + cfg.Port)
