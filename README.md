@@ -2,9 +2,9 @@
 
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![Gin](https://img.shields.io/badge/Gin-Framework-00BFFF?logo=go)](https://gin-gonic.com)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white)](https://neon.tech)
 [![Redis](https://img.shields.io/badge/Redis-Upstash-DC382D?logo=redis&logoColor=white)](https://upstash.com)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 A currency exchange rate REST API built with Go. Fetches live rates from [ExchangeRate-API](https://www.exchangerate-api.com/), caches results in Redis, persists history in PostgreSQL, enforces per-IP rate limiting, and fires webhooks when rates cross user-defined thresholds.
 
@@ -14,8 +14,7 @@ A currency exchange rate REST API built with Go. Fetches live rates from [Exchan
 
 ## Dashboard
 
-<!-- Replace with a screenshot or GIF of the dashboard -->
-![Dashboard preview](https://placehold.co/860x400/0f1117/6366f1?text=Exchange+Rate+Dashboard)
+![Dashboard preview](web/assets/dashboard-preview.gif)
 
 ---
 
@@ -72,6 +71,17 @@ Start the server:
 
 ```bash
 make run
+```
+
+### Run with Docker
+
+No manual migration needed - Postgres runs them automatically on firts start.
+
+```bash
+cp .env.example .env.docker   # fill in your credentials
+make docker-up                # builds and starts api + postgres + redis
+make docker-down              # stop containers
+make docker-logs              # follow api logs
 ```
 
 ---
